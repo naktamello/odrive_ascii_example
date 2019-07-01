@@ -1,5 +1,6 @@
 #include <utility>
 #include <iostream>
+#include <numeric>
 #include <boost/bind.hpp>
 #include <boost/thread.hpp>
 #include <boost/chrono.hpp>
@@ -36,8 +37,7 @@ public:
         }
         boost::asio::serial_port_base::baud_rate baud_option(baud);
         serial_port_->set_option(baud_option);
-        boost::thread t(boost::bind(&boost::asio::io_service::run, io_service_));
-        start_reading();
+        boost::thread t(boost::bind(&ODriveSerial::start_thread, this));
     }
 
     void write_async(std::string &&msg) {
@@ -54,6 +54,11 @@ public:
 
 
 private:
+    void start_thread(){
+        start_reading();
+        io_service_->run();
+    }
+
     void start_reading() {
         serial_port_->async_read_some(boost::asio::buffer(io_buffer_, max_read_length),
                                       boost::bind(&ODriveSerial::read_async_complete, this,
@@ -96,13 +101,13 @@ void read_callback(std::string &&feedback) {
 }
 
 int main() {
-    ODriveSerial serial = ODriveSerial(115200, "/dev/ttyACM0", read_callback);
+    ODriveSerial serial = ODriveSerial(115200, "/dev/ttyJ2", read_callback);
     struct sigaction sa{};
     init_system_signals(sa);
 
     while (0 == signal_value){
         serial.write_async("f 0\r");
-        boost::this_thread::sleep_for(boost::chrono::milliseconds(10));
+        boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
     }
 
     serial.terminate();
